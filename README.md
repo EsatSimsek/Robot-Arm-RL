@@ -10,9 +10,12 @@ Custom 6-DOF Robot Arm — Reinforcement Learning Training with [IsaacLab](https
 
 ## 🎬 Demo
 
-https://github.com/ITU-Industrial-Robotics-Team/S_Robot_Arm_RL/raw/main/media/v21_demo.mp4
+<video src="https://github.com/ITU-Industrial-Robotics-Team/S_Robot_Arm_RL/raw/main/media/v21_demo.mp4" controls width="800">
+</video>
 
 *V21 trained policy — 32 parallel environments, ~2.3° orientation error, ~3.8cm position error*
+
+> 📥 Video görünmüyorsa: [v21_demo.mp4](https://github.com/ITU-Industrial-Robotics-Team/S_Robot_Arm_RL/raw/main/media/v21_demo.mp4)
 
 ---
 
