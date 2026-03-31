@@ -166,17 +166,17 @@ entropy_coef = 0.005   # Prevents entropy collapse
 desired_kl   = 0.02
 ```
 
-### 🏅 Ödül (Reward) Yapısı ve Ağırlıkları (`joint_pos_env_cfg.py`)
+### 🏅 Reward Structure & Weights (`joint_pos_env_cfg.py`)
 
-Ajanın öğrenme davranışını optimize etmek için ödüller özenle şekillendirilmiştir. V21 versiyonunda pozisyon ve oryantasyon dengesi kurularak robotun hem hedefe ulaşması hem de tam istenilen açıda durması sağlanmıştır.
+Rewards are carefully shaped to optimize the agent's learning behavior. In the V21 version, a balance between position and orientation is established, ensuring the robot not only reaches the target but also maintains the exact desired angle.
 
-| Ödül Adı / Fonksiyonu | Ağırlık (Weight) | Parametre (std) | Amaç ve Etkisi |
+| Reward Name / Function | Weight | Parameter (std) | Purpose & Effect |
 | :--- | :---: | :---: | :--- |
-| **`end_effector_position_tracking`**<br>`position_command_error_tanh` | **25.0** | `0.5` | End-effector'ı (uç işlevciyi) hedefe yaklaştırmak için **genel (kaba) pozisyon takibi** sağlar. `std=0.5` sayesinde robot hedeften uzakken bile yavaş yavaş hedefe çekilir. |
-| **`end_effector_position_tracking_fine_grained`** | **15.0** | `0.05` | Hedefe çok yaklaşıldığında devreye giren **hassas pozisyon takibi**dir. `std=0.05` olduğu için ancak milimetrik mesafelerde yüksek puan verir ve robotu tam merkeze kilitler. V21'de ağırlığı 30'dan 15'e indirilerek ajanın sadece pozisyona odaklanıp oryantasyonu (açıyı) bozmasının önüne geçilmiştir. |
-| **`end_effector_orientation_tracking`**<br>`orientation_command_error_tanh` | **25.0** | `0.4` | Yalnızca `S_Robot_Arm_RL` için yazılan **özel oryantasyon ödülü**. `std=0.4` değeriyle agresif bir eğim (gradient) üretir. Robot yanlış açıdaysa (`>1.5 rad`) sıfıra yakın puan alır, doğru açıya yaklaştıkça puanı **stel olarak (tanh)** artar. Ağırlığının 25 olması, robotu açıyı düzeltmeye zorlayan birincil faktördür. |
-| **`action_rate`** | **-0.03** | `-` | Aksiyonlar arası ani değişimleri (jerk) cezalandırır. Robotun titremesini önler, pürüzsüz ve gerçekçi (smooth) bir kontrol sinyali üretmesini sağlar. |
-| **`joint_vel`** | **-0.005** | `-` | Aşırı yüksek eklem hızlarını cezalandırır. Simülasyonun patlamasını (stability) engeller ve daha güvenli hareketler sağlar. |
+| **`end_effector_position_tracking`**<br>`position_command_error_tanh` | **25.0** | `0.5` | Provides **general (coarse) position tracking** to guide the end-effector toward the target. With `std=0.5`, the robot is gradually pulled toward the target even from a distance. |
+| **`end_effector_position_tracking_fine_grained`** | **15.0** | `0.05` | Provides **highly precise position tracking** that takes over when close to the target. Due to `std=0.05`, it grants high rewards only at millimeter distances, locking the robot directly to the center. In V21, its weight is reduced from 30 to 15 to prevent the agent from collapsing the orientation in favor of proximity greed. |
+| **`end_effector_orientation_tracking`**<br>`orientation_command_error_tanh` | **25.0** | `0.4` | A **custom orientation reward** written specifically for `S_Robot_Arm_RL`. A `std=0.4` value creates an aggressive gradient. If the robot is at a bad angle (`>1.5 rad`), it receives near-zero points. As it aligns correctly, the reward scales up exponentially via a **tanh** function. Setting this weight to 25 makes it the primary driving factor forcing the robot to fix its angle. |
+| **`action_rate`** | **-0.03** | `-` | Penalizes sudden changes (jerks) between consecutive actions. Prevents robot jittering and ensures a smooth, realistic control signal. |
+| **`joint_vel`** | **-0.005** | `-` | Penalizes excessively high joint velocities. Prevents simulation instability and ensures safer, controlled movements. |
 
 **Physics**:
 ```python
@@ -186,22 +186,22 @@ damping   = 100.0
 
 ---
 
-## 📄 Özel Ödül Fonksiyonları (`mdp/rewards.py`)
+## 📄 Custom Reward Functions (`mdp/rewards.py`)
 
-Standard IsaacLab kurulumunun eksik kaldığı noktalarda, ajanın oryantasyon hatalarına karşı ceza vermek yerine **doğru oryantasyona teşvik eden pozitif bir ödül fonksiyonu** (`orientation_command_error_tanh`) yazılmıştır:
+To fill the gaps in the standard IsaacLab architecture, a **positive reward function** (`orientation_command_error_tanh`) was written. Rather than merely penalizing orientation errors, this explicitly encourages correct orientation:
 
 ```python
 def orientation_command_error_tanh(env, std, command_name, asset_cfg):
     # reward = 1 - tanh(error / std)
 ```
 
-Bu formül şu sonuçları doğurur (`std=0.4` için):
-* Hata `0.0 rad` (tam isabet) → **Ödül = 1.0** *(maksimum)*
-* Hata `0.4 rad` → **Ödül ≈ 0.46** *(orta hal)*
-* Hata `1.0 rad` → **Ödül ≈ 0.07** *(çok düşük)*
-* Hata `1.5 rad` → **Ödül ≈ 0.02** *(neredeyse sıfır)*
+For `std=0.4`, this formulation yields:
+* Error `0.0 rad` (perfect align) → **Reward = 1.0** *(maximum)*
+* Error `0.4 rad` → **Reward ≈ 0.46** *(moderate)*
+* Error `1.0 rad` → **Reward ≈ 0.07** *(very low)*
+* Error `1.5 rad` → **Reward ≈ 0.02** *(near zero)*
 
-Bu mantık, robotun her step'te açıyı tutturduğu sürece yüksek oranda pekiştirilmesini sağlar. Geri kalan tüm matematiksel detaylar için `mdp/rewards.py` dosyası incelenebilir.
+This logic ensures the robot is heavily reinforced at every step as long as it maintains the correct angle. For further math and implementation details, refer to `mdp/rewards.py`.
 
 ---
 
